@@ -1,6 +1,14 @@
 library(targets)
 library(tarchetypes)
 library(tidyverse)
+library(optimx)
+library(GenSA)
+library(FD)
+library(snow)
+library(parallel)
+library(rexpokit)
+library(cladoRcpp)
+library(BioGeoBEARS)
 
 source("R/functions.R")
 
@@ -37,6 +45,7 @@ tar_plan(
     geogfn = antro_geogfn,
     dispersal_multipliers_fn = antro_multfn,
     max_range_size = antro_max_range,
+    jump = TRUE,
     res_dec = dec_model
   ),
   # - DIVA
@@ -57,6 +66,7 @@ tar_plan(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     max_range_size = antro_max_range,
+    jump = TRUE,
     res_diva = diva_model
   ),
   # - DIVA-j constrained
@@ -65,6 +75,7 @@ tar_plan(
     geogfn = antro_geogfn,
     dispersal_multipliers_fn = antro_multfn,
     max_range_size = antro_max_range,
+    jump = TRUE,
     res_diva = diva_model
   ),
   # - BAYAREA
@@ -85,6 +96,7 @@ tar_plan(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     max_range_size = antro_max_range,
+    jump = TRUE,
     res_bayarea = bayarea_model
   ),
   # - BAYAREA-j constrained
@@ -93,6 +105,7 @@ tar_plan(
     geogfn = antro_geogfn,
     dispersal_multipliers_fn = antro_multfn,
     max_range_size = antro_max_range,
+    jump = TRUE,
     res_bayarea = bayarea_model
   ),
   # Run BioGeoBEARS
@@ -111,6 +124,20 @@ tar_plan(
   bayarea_const_model = run_bgb_quietly(bayarea_const_settings),
   bayareaj_model = run_bgb_quietly(bayareaj_settings),
   bayareaj_const_model = run_bgb_quietly(bayareaj_const_settings),
+  # Compare models with AIC
+  bgb_stats = get_bgb_stats(
+    dec_model = dec_model,
+    dec_const_model = dec_const_model,
+    decj_model = decj_model,
+    decj_const_model = decj_const_model,
+    diva_model = diva_model,
+    diva_const_model = diva_const_model,
+    divaj_model = divaj_model,
+    divaj_const_model = divaj_const_model,
+    bayarea_model = bayarea_model,
+    bayarea_const_model = bayarea_const_model,
+    bayareaj_model  = bayareaj_model,
+    bayareaj_const_model = bayareaj_const_model),
   # Do stochastic character mapping to estimate range shifts over time
   stochastic_mapping_inputs_list = 
     BioGeoBEARS::get_inputs_for_stochastic_mapping(res = dec_model),

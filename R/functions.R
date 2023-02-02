@@ -437,150 +437,90 @@ run_bsm_quietly <- function(...) {
 
 #' Compare BioGeoBEARS models using AIC
 #'
-#' @param resDEC Results of running BioGeoBEARS using the DEC model 
-#' @param resDECj Results of running BioGeoBEARS using the DECj model 
-#' @param resDIVALIKE Results of running BioGeoBEARS using the DIVALIKE model 
-#' @param resDIVALIKEj Results of running BioGeoBEARS using the DIVALIKE+J model 
-#' @param resBAYAREALIKE Results of running BioGeoBEARS using the BAYAREALIKE model 
-#' @param resBAYAREALIKEj Results of running BioGeoBEARS using the BAYAREALIKE+J model 
-#' @param tr Phylogenetic tree used in BioGeoBEARS analysis
-#' @param return String, either "tests" or "aic"
+#' @param dec_model Results of running BioGeoBEARS using the DEC model
+#' @param dec_const_model Results of running BioGeoBEARS using the DEC
+#' constrained model
+#' @param decj_model Results of running BioGeoBEARS using the DECj model
+#' @param decj_const_model Results of running BioGeoBEARS using the DECj
+#' constrained model
+#' @param diva_model Results of running BioGeoBEARS using the DIVALIKE model
+#' @param diva_const_model Results of running BioGeoBEARS using the DIVALIKE
+#' constrained model
+#' @param divaj_model Results of running BioGeoBEARS using the DIVALIKE+J model
+#' @param divaj_const_model Results of running BioGeoBEARS using the DIVALIKE+J
+#' constrained model
+#' @param bayarea_model Results of running BioGeoBEARS using the BAYAREALIKE
+#' model
+#' @param bayarea_const_model Results of running BioGeoBEARS using the
+#' BAYAREALIKE constrained model
+#' @param bayareaj_model Results of running BioGeoBEARS using the BAYAREALIKE+J
+#' model
+#' @param bayareaj_const_model Results of running BioGeoBEARS using the
+#' BAYAREALIKE+J constrained model
 #'
-#' @return One of two dataframes, depending on `return`
-#'   - if return = "tests": results comparing each pair of models (e.g, DEC vs DEC+J)
-#'   - if return = "aic": AIC and corrected AIC comparing all models
-#' 
-get_bgb_stats <- function(resDEC,
-                          resDECj,
-                          resDIVALIKE,
-                          resDIVALIKEj,
-                          resBAYAREALIKE,
-                          resBAYAREALIKEj,
-                          tr,
-                          return = c("tests", "aic")) {
+#' @return dataframe
+get_bgb_stats <- function(
+  dec_model,
+  dec_const_model,
+  decj_model,
+  decj_const_model,
+  diva_model,
+  diva_const_model,
+  divaj_model,
+  divaj_const_model,
+  bayarea_model,
+  bayarea_const_model,
+  bayareaj_model,
+  bayareaj_const_model) {
 
-  assert_that(return %in% c("tests", "aic"))
+  models <- list(
+      dec = dec_model,
+      dec_const = dec_const_model,
+      decj = decj_model,
+      decj_const = decj_const_model,
+      diva = diva_model,
+      diva_const = diva_const_model,
+      divaj = divaj_model,
+      divaj_const = divaj_const_model,
+      bayarea = bayarea_model,
+      bayarea_const = bayarea_const_model,
+      bayareaj = bayareaj_model,
+      bayareaj_const = bayareaj_const_model
+    )
 
-  # Set up empty tables to hold the statistical results
-  restable = NULL
-  teststable = NULL
-
-  ### Statistics -- DEC vs. DEC+J ###
-
-  # We have to extract the log-likelihood differently, depending on the 
-  # version of optim/optimx
-  LnL_2 = BioGeoBEARS::get_LnL_from_BioGeoBEARS_results_object(resDEC)
-  LnL_1 = BioGeoBEARS::get_LnL_from_BioGeoBEARS_results_object(resDECj)
-
-  numparams1 = 3
-  numparams2 = 2
-  stats = BioGeoBEARS::AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
-
-  # DEC, null model for Likelihood Ratio Test (LRT)
-  res2 = BioGeoBEARS::extract_params_from_BioGeoBEARS_results_object(results_object=resDEC, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
-  # DEC+J, alternative model for Likelihood Ratio Test (LRT)
-  res1 = BioGeoBEARS::extract_params_from_BioGeoBEARS_results_object(results_object=resDECj, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
-
-  # The null hypothesis for a Likelihood Ratio Test (LRT) is that two models
-  # confer the same likelihood on the data. See: Brian O'Meara's webpage:
-  # http://www.brianomeara.info/tutorials/aic
-  # ...for an intro to LRT, AIC, and AICc
-  tmp_tests = BioGeoBEARS::conditional_format_table(stats)
-
-  restable = rbind(restable, res2, res1)
-  teststable = rbind(teststable, tmp_tests)
-
-  ### Statistics -- DIVALIKE vs. DIVALIKE+J ###
-
-  # We have to extract the log-likelihood differently, depending on the 
-  # version of optim/optimx
-  LnL_2 = BioGeoBEARS::get_LnL_from_BioGeoBEARS_results_object(resDIVALIKE)
-  LnL_1 = BioGeoBEARS::get_LnL_from_BioGeoBEARS_results_object(resDIVALIKEj)
-
-  numparams1 = 3
-  numparams2 = 2
-  stats = BioGeoBEARS::AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
-
-  # DIVALIKE, null model for Likelihood Ratio Test (LRT)
-  res2 = BioGeoBEARS::extract_params_from_BioGeoBEARS_results_object(results_object=resDIVALIKE, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
-  # DIVALIKE+J, alternative model for Likelihood Ratio Test (LRT)
-  res1 = BioGeoBEARS::extract_params_from_BioGeoBEARS_results_object(results_object=resDIVALIKEj, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
-
-  tmp_tests = conditional_format_table(stats)
-
-  restable = rbind(restable, res2, res1)
-  teststable = rbind(teststable, tmp_tests)
-
-  ### Statistics -- BAYAREALIKE vs. BAYAREALIKE+J ###
-
-  # We have to extract the log-likelihood differently, depending on the 
-  # version of optim/optimx
-  LnL_2 = BioGeoBEARS::get_LnL_from_BioGeoBEARS_results_object(resBAYAREALIKE)
-  LnL_1 = BioGeoBEARS::get_LnL_from_BioGeoBEARS_results_object(resBAYAREALIKEj)
-
-  numparams1 = 3
-  numparams2 = 2
-  stats = BioGeoBEARS::AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
-
-  # BAYAREALIKE, null model for Likelihood Ratio Test (LRT)
-  res2 = BioGeoBEARS::extract_params_from_BioGeoBEARS_results_object(results_object=resBAYAREALIKE, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
-  # BAYAREALIKE+J, alternative model for Likelihood Ratio Test (LRT)
-  res1 = BioGeoBEARS::extract_params_from_BioGeoBEARS_results_object(results_object=resBAYAREALIKEj, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
-
-  tmp_tests = BioGeoBEARS::conditional_format_table(stats)
-
-  restable = rbind(restable, res2, res1)
-  teststable = rbind(teststable, tmp_tests)
-
-  ### ASSEMBLE RESULTS TABLES: DEC, DEC+J, DIVALIKE, DIVALIKE+J, BAYAREALIKE, BAYAREALIKE+J ###
-
-  teststable$alt = c("DEC+J", "DIVALIKE+J", "BAYAREALIKE+J")
-  teststable$null = c("DEC", "DIVALIKE", "BAYAREALIKE")
-  row.names(restable) = c("DEC", "DEC+J", "DIVALIKE", "DIVALIKE+J", "BAYAREALIKE", "BAYAREALIKE+J")
-  restable = BioGeoBEARS::put_jcol_after_ecol(restable)
-
-  ### Model weights of all six models ###
-
-  # With AICs:
-  AICtable = BioGeoBEARS::calc_AIC_column(LnL_vals=restable$LnL, nparam_vals=restable$numparams)
-  restable2 = cbind(restable, AICtable)
-  restable_AIC_rellike = BioGeoBEARS::AkaikeWeights_on_summary_table(restable=restable2, colname_to_use="AIC")
-  restable_AIC_rellike = BioGeoBEARS::put_jcol_after_ecol(restable_AIC_rellike)
-
-  # With AICcs (factors in sample size)
-  samplesize = length(tr$tip.label)
-  AICtable = BioGeoBEARS::calc_AICc_column(LnL_vals=restable$LnL, nparam_vals=restable$numparams, samplesize=samplesize)
-  restable2 = cbind(restable, AICtable)
-  restable_AICc_rellike = BioGeoBEARS::AkaikeWeights_on_summary_table(restable=restable2, colname_to_use="AICc")
-  restable_AICc_rellike = BioGeoBEARS::put_jcol_after_ecol(restable_AICc_rellike)
-
-  ### Format as tibbles for output ###
-
-  teststable <- as_tibble(teststable) %>%
-    mutate_if(is.list, purrr::flatten_chr) %>%
-    mutate_at(vars(-alt, -null, -test, -tail), readr::parse_double)
-
-  restable <-
-    restable %>% 
-    rownames_to_column("model") %>%
-    as_tibble
-
-  AIC_table <-
-    restable_AIC_rellike %>% 
-    rownames_to_column("model") %>%
-    as_tibble
-
-  AICc_table <-
-    restable_AICc_rellike %>% 
-    rownames_to_column("model") %>%
-    as_tibble
-
-  AIC_table <- inner_join(AIC_table, AICc_table, by = c("model", "LnL", "numparams", "d", "e", "j"))
-
-  if (return == "tests") return(teststable)
-
-  if (return == "aic") return(AIC_table)
-
+tibble::tibble(mod_name = names(models), model = models) %>%
+  mutate(
+    params = map(
+      models,
+      ~extract_params_from_BioGeoBEARS_results_object(
+        ., returnwhat = "table", addl_params = "j", paramsstr_digits = 4
+      ))
+  ) %>%
+  unnest(params) %>%
+  rename(lnl = LnL) %>%
+  select(-model) %>%
+  mutate(aic = 2 * numparams - 2 * lnl) %>%
+  # Arrange by constraint type, jump type, then model name
+  mutate(
+    constraint = if_else(
+      str_detect(mod_name, "const"),
+      "constrained",
+      "unconstrained"),
+    constraint = factor(constraint, levels = c("unconstrained", "constrained")),
+    jump = if_else(
+      str_detect(mod_name, "j"),
+      "jump_yes",
+      "jump_no"),
+    jump = factor(jump, levels = c("jump_no", "jump_yes")),
+    model_type = case_when(
+      str_detect(mod_name, "dec") ~ "dec",
+      str_detect(mod_name, "diva") ~ "diva",
+      str_detect(mod_name, "bayarea") ~ "bayarea"
+    ),
+    model_type = factor(model_type, levels = c("dec", "diva", "bayarea"))
+  ) %>%
+  arrange(constraint, jump, model_type) %>%
+  select(mod_name, constraint, lnl, numparams, d, e, j, aic)
 }
 
 #' Count the number of dispersal events to realms
