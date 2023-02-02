@@ -13,11 +13,12 @@ library(BioGeoBEARS)
 source("R/functions.R")
 
 tar_plan(
+  # Specify data file paths ----
   tar_file(antro_trfn, "Antrophyum.newick"),
   tar_file(antro_geogfn, "Antrophyum_geodata.data"),
   tar_file(antro_multfn, "manual_dispersal_multipliers.txt"),
+  # Set up BioGeoBEARS models ----
   antro_max_range = 6,
-  # Set up BioGeoBEARS models
   # - DEC
   dec_settings = setup_bgb_dec(
     trfn = antro_trfn,
@@ -108,7 +109,7 @@ tar_plan(
     jump = TRUE,
     res_bayarea = bayarea_model
   ),
-  # Run BioGeoBEARS
+  # Run BioGeoBEARS ----
   # - DEC
   dec_model = run_bgb_quietly(dec_settings),
   dec_const_model = run_bgb_quietly(dec_const_settings),
@@ -124,7 +125,7 @@ tar_plan(
   bayarea_const_model = run_bgb_quietly(bayarea_const_settings),
   bayareaj_model = run_bgb_quietly(bayareaj_settings),
   bayareaj_const_model = run_bgb_quietly(bayareaj_const_settings),
-  # Compare models with AIC
+  # Compare models with AIC ----
   bgb_stats = get_bgb_stats(
     dec_model = dec_model,
     dec_const_model = dec_const_model,
@@ -138,11 +139,15 @@ tar_plan(
     bayarea_const_model = bayarea_const_model,
     bayareaj_model  = bayareaj_model,
     bayareaj_const_model = bayareaj_const_model),
-  # Do stochastic character mapping to estimate range shifts over time
-  stochastic_mapping_inputs_list = 
-    BioGeoBEARS::get_inputs_for_stochastic_mapping(res = dec_model),
+  # Format table for MS
+  bgb_stats_pretty = format_model_table(bgb_stats),
+  # Extract best-scoring model for BSM
+  best_model = get_best_model(bgb_stats),
+  # Run BSM ----
+  stochastic_mapping_inputs_list =
+    BioGeoBEARS::get_inputs_for_stochastic_mapping(res = best_model),
   bsm_results = run_bsm_quietly(
-    res = dec_model,
+    res = best_model,
     stochastic_mapping_inputs_list = stochastic_mapping_inputs_list,
     maxnum_maps_to_try = 2000,
     nummaps_goal = 100,
@@ -151,7 +156,6 @@ tar_plan(
     savedir = "_targets/user/biogeobears/",
     seedval = 12345,
     wait_before_save = 0.01),
-  
   # Count normalized dispersal events through time
   antro_phy = ape::read.tree(antro_trfn) #,
   # dispersal_events = count_normalized_dispersal_events(

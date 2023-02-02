@@ -471,7 +471,8 @@ get_bgb_stats <- function(
   bayarea_model,
   bayarea_const_model,
   bayareaj_model,
-  bayareaj_const_model) {
+  bayareaj_const_model,
+  include_model = FALSE) {
 
   models <- list(
       dec = dec_model,
@@ -498,8 +499,12 @@ tibble::tibble(mod_name = names(models), model = models) %>%
   ) %>%
   unnest(params) %>%
   rename(lnl = LnL) %>%
-  select(-model) %>%
-  mutate(aic = 2 * numparams - 2 * lnl) %>%
+  mutate(aic = 2 * numparams - 2 * lnl)
+}
+
+# Format the model AIC table for manuscript
+format_model_table <- function(bgb_stats) {
+  bgb_stats %>%
   # Arrange by constraint type, jump type, then model name
   mutate(
     constraint = if_else(
@@ -521,6 +526,15 @@ tibble::tibble(mod_name = names(models), model = models) %>%
   ) %>%
   arrange(constraint, jump, model_type) %>%
   select(mod_name, constraint, lnl, numparams, d, e, j, aic)
+}
+
+# Get the best-scoring model from AIC table
+get_best_model <- function(bgb_stats) {
+  best_mod_row <-
+  bgb_stats %>%
+    slice_min(aic)
+  message(paste("The best model by AIC was", best_mod_row$mod_name))
+  best_mod_row$model[[1]]
 }
 
 #' Count the number of dispersal events to realms
