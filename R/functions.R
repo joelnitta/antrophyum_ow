@@ -1,11 +1,10 @@
-
-#' Setup a BioGeoBEARS run using the DEC model
+#' Setup a default BioGeoBEARS run
+#' 
+#' Equivalent to DEC model
 #'
 #' @param trfn Path to BioGeoBEARS tree file (in Newick format)
 #' @param geogfn Path to BioGeoBEARS geography file (in phylip format)
 #' @param max_range_size Maximum number of range states allowed in model
-#' @param jump Logical; should "jump" parameter be used?
-#' @param res_dec Output of DEC model; required if `jump` is TRUE
 #' @param timesfn_fn Path to time slices file, optional
 #' @param dispersal_multipliers_fn Path to dispersal multipliers file, optional
 #' @param min_branchlength Minimum branchlength to treat tip as a direct
@@ -17,12 +16,10 @@
 #'
 #' @return List
 #'
-setup_bgb_dec <- function(
+setup_bgb_default <- function(
   trfn,
   geogfn,
   max_range_size,
-  jump = FALSE,
-  res_dec = NULL,
   timesfn = NULL,
   dispersal_multipliers_fn = NULL,
   min_branchlength =  0.000001,
@@ -72,8 +69,56 @@ setup_bgb_dec <- function(
   BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table <- TRUE
   BioGeoBEARS_run_object$calc_ancprobs <- TRUE    # get ancestral states from optim run #nolint
 
-  # Set up DEC model
-  # (nothing to do; defaults)
+  # Check that setup is valid
+  BioGeoBEARS::check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+  BioGeoBEARS_run_object
+}
+
+
+#' Setup a BioGeoBEARS run using the DEC model
+#'
+#' @param trfn Path to BioGeoBEARS tree file (in Newick format)
+#' @param geogfn Path to BioGeoBEARS geography file (in phylip format)
+#' @param max_range_size Maximum number of range states allowed in model
+#' @param jump Logical; should "jump" parameter be used?
+#' @param res_dec Output of DEC model; required if `jump` is TRUE
+#' @param timesfn_fn Path to time slices file, optional
+#' @param dispersal_multipliers_fn Path to dispersal multipliers file, optional
+#' @param min_branchlength Minimum branchlength to treat tip as a direct
+#' ancestor (no speciation event)
+#' @param num_cores_to_use Number of cores to use during analysis
+#' @param cluster_already_open Logical; is a cluster already open? Optional.
+#' @param use_optimx Type of optimization to use; choose "optim", "optimx",
+#' or "GenSA"
+#'
+#' @return List
+#'
+setup_bgb_dec <- function(
+  trfn,
+  geogfn,
+  max_range_size,
+  jump = FALSE,
+  res_dec = NULL,
+  timesfn = NULL,
+  dispersal_multipliers_fn = NULL,
+  min_branchlength =  0.000001,
+  num_cores_to_use = 1,
+  cluster_already_open = NULL,
+  use_optimx = "GenSA") {
+
+  # Setup default model (DEC)
+  BioGeoBEARS_run_object <- setup_bgb_default(
+    trfn = trfn,
+    geogfn = geogfn,
+    max_range_size = max_range_size,
+    timesfn = timesfn,
+    dispersal_multipliers_fn = dispersal_multipliers_fn,
+    min_branchlength = min_branchlength,
+    num_cores_to_use = num_cores_to_use,
+    cluster_already_open = cluster_already_open,
+    use_optimx = use_optimx
+  )
 
   # DEC+J
   if (jump == TRUE) {
@@ -133,46 +178,18 @@ setup_bgb_diva <- function(
   cluster_already_open = NULL,
   use_optimx = "GenSA") {
 
-  # Basic settings
-  # - default model is DEC
-  BioGeoBEARS_run_object <- BioGeoBEARS::define_BioGeoBEARS_run()
-  BioGeoBEARS_run_object$trfn <- trfn
-  BioGeoBEARS_run_object$geogfn <- geogfn
-  BioGeoBEARS_run_object$max_range_size <- max_range_size
-  BioGeoBEARS_run_object$min_branchlength <- min_branchlength
-  BioGeoBEARS_run_object$include_null_range <- TRUE
-
-  # (Optional) specify time slices file
-  if (!is.null(timesfn)) BioGeoBEARS_run_object$timesfn <- timesfn
-
-  # (Optional) specify dispersal multipliers file
-  if (!is.null(dispersal_multipliers_fn)) {
-    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
-  }
-
-  # Speed options and multicore processing
-  BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
-  BioGeoBEARS_run_object$speedup <- TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params) #nolint
-  BioGeoBEARS_run_object$use_optimx <- use_optimx    # if FALSE, use optim() instead of optimx() #nolint
-  BioGeoBEARS_run_object$num_cores_to_use <- num_cores_to_use
-  BioGeoBEARS_run_object$force_sparse <- FALSE    # force_sparse = TRUE causes pathology & isn't much faster at this scale #nolint
-  BioGeoBEARS_run_object$cluster_already_open <- cluster_already_open
-
-  # Loads the dispersal multiplier matrix etc.
-  BioGeoBEARS_run_object <- BioGeoBEARS::readfiles_BioGeoBEARS_run(
-    BioGeoBEARS_run_object)
-
-  # Divide the tree up by timeperiods/strata for stratified analysis
-  if (!is.null(timesfn)) {
-    BioGeoBEARS_run_object <- BioGeoBEARS::section_the_tree(
-      inputs = BioGeoBEARS_run_object,
-      make_master_table = TRUE, plot_pieces = FALSE)
-  }
-
-  # Good default settings to get ancestral states
-  BioGeoBEARS_run_object$return_condlikes_table <- TRUE
-  BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table <- TRUE
-  BioGeoBEARS_run_object$calc_ancprobs <- TRUE    # get ancestral states from optim run #nolint
+  # Setup default model (DEC)
+  BioGeoBEARS_run_object <- setup_bgb_default(
+    trfn = trfn,
+    geogfn = geogfn,
+    max_range_size = max_range_size,
+    timesfn = timesfn,
+    dispersal_multipliers_fn = dispersal_multipliers_fn,
+    min_branchlength = min_branchlength,
+    num_cores_to_use = num_cores_to_use,
+    cluster_already_open = cluster_already_open,
+    use_optimx = use_optimx
+  )
 
   if (jump == FALSE) {
     # Set up DIVALIKE model
@@ -269,45 +286,18 @@ setup_bgb_bayarea <- function(
   cluster_already_open = NULL,
   use_optimx = "GenSA") {
 
-  # Basic settings
-  BioGeoBEARS_run_object <- BioGeoBEARS::define_BioGeoBEARS_run()
-  BioGeoBEARS_run_object$trfn <- trfn
-  BioGeoBEARS_run_object$geogfn <- geogfn
-  BioGeoBEARS_run_object$max_range_size <- max_range_size
-  BioGeoBEARS_run_object$min_branchlength <- min_branchlength
-  BioGeoBEARS_run_object$include_null_range <- TRUE
-
-  # (Optional) specify time slices file
-  if (!is.null(timesfn)) BioGeoBEARS_run_object$timesfn <- timesfn
-
-  # (Optional) specify dispersal multipliers file
-  if (!is.null(dispersal_multipliers_fn)) {
-    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
-  }
-
-  # Speed options and multicore processing
-  BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
-  BioGeoBEARS_run_object$speedup <- TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params) #nolint
-  BioGeoBEARS_run_object$use_optimx <- use_optimx    # if FALSE, use optim() instead of optimx() #nolint
-  BioGeoBEARS_run_object$num_cores_to_use <- num_cores_to_use
-  BioGeoBEARS_run_object$force_sparse <- FALSE    # force_sparse = TRUE causes pathology & isn't much faster at this scale #nolint
-  BioGeoBEARS_run_object$cluster_already_open <- cluster_already_open
-
-  # Loads the dispersal multiplier matrix etc.
-  BioGeoBEARS_run_object <- BioGeoBEARS::readfiles_BioGeoBEARS_run(
-    BioGeoBEARS_run_object)
-
-  # Divide the tree up by timeperiods/strata for stratified analysis
-  if (!is.null(timesfn)) {
-    BioGeoBEARS_run_object <- BioGeoBEARS::section_the_tree(
-      inputs = BioGeoBEARS_run_object,
-      make_master_table = TRUE, plot_pieces = FALSE)
-  }
-
-  # Good default settings to get ancestral states
-  BioGeoBEARS_run_object$return_condlikes_table <- TRUE
-  BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table <- TRUE
-  BioGeoBEARS_run_object$calc_ancprobs <- TRUE    # get ancestral states from optim run #nolint
+  # Setup default model (DEC)
+  BioGeoBEARS_run_object <- setup_bgb_default(
+    trfn = trfn,
+    geogfn = geogfn,
+    max_range_size = max_range_size,
+    timesfn = timesfn,
+    dispersal_multipliers_fn = dispersal_multipliers_fn,
+    min_branchlength = min_branchlength,
+    num_cores_to_use = num_cores_to_use,
+    cluster_already_open = cluster_already_open,
+    use_optimx = use_optimx
+  )
 
   if (jump == FALSE) {
 

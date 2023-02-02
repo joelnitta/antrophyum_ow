@@ -24,19 +24,20 @@ tar_plan(
     max_range_size = antro_max_range
   ),
   # - DEC-j
-  decj_settings = setup_bgb_decj(
+  decj_settings = setup_bgb_dec(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     max_range_size = antro_max_range,
-    resDEC = dec_model
+    jump = TRUE,
+    res_dec = dec_model
   ),
   # - DEC-j constrained
-  decj_const_settings = setup_bgb_decj(
+  decj_const_settings = setup_bgb_dec(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     dispersal_multipliers_fn = antro_multfn,
     max_range_size = antro_max_range,
-    resDEC = dec_model
+    res_dec = dec_model
   ),
   # - DIVA
   diva_settings = setup_bgb_diva(
@@ -52,19 +53,19 @@ tar_plan(
     max_range_size = antro_max_range
   ),
   # - DIVA-j
-  divaj_settings = setup_bgb_divaj(
+  divaj_settings = setup_bgb_diva(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     max_range_size = antro_max_range,
-    resDIVALIKE = diva_model
+    res_diva = diva_model
   ),
   # - DIVA-j constrained
-  divaj_const_settings = setup_bgb_divaj(
+  divaj_const_settings = setup_bgb_diva(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     dispersal_multipliers_fn = antro_multfn,
     max_range_size = antro_max_range,
-    resDIVA = diva_model
+    res_diva = diva_model
   ),
   # - BAYAREA
   bayarea_settings = setup_bgb_bayarea(
@@ -80,19 +81,19 @@ tar_plan(
     max_range_size = antro_max_range
   ),
   # - BAYAREA-j
-  bayareaj_settings = setup_bgb_bayareaj(
+  bayareaj_settings = setup_bgb_bayarea(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     max_range_size = antro_max_range,
-    resBAYAREA = bayarea_model
+    res_bayarea = bayarea_model
   ),
   # - BAYAREA-j constrained
-  bayareaj_const_settings = setup_bgb_bayareaj(
+  bayareaj_const_settings = setup_bgb_bayarea(
     trfn = antro_trfn,
     geogfn = antro_geogfn,
     dispersal_multipliers_fn = antro_multfn,
     max_range_size = antro_max_range,
-    resBAYAREA = bayarea_model
+    res_bayarea = bayarea_model
   ),
   # Run BioGeoBEARS
   # - DEC
