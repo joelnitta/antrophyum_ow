@@ -30,14 +30,14 @@ setup_bgb_dec <- function(
   cluster_already_open = NULL,
   use_optimx = "GenSA") {
 
-  # Intitialize a default model (DEC model)
+  # Basic settings
+  # - default model is DEC
   BioGeoBEARS_run_object <- BioGeoBEARS::define_BioGeoBEARS_run()
-
-  # Give BioGeoBEARS the location of the phylogeny Newick file
   BioGeoBEARS_run_object$trfn <- trfn
-
-  # Give BioGeoBEARS the location of the geography text file
   BioGeoBEARS_run_object$geogfn <- geogfn
+  BioGeoBEARS_run_object$max_range_size <- max_range_size
+  BioGeoBEARS_run_object$min_branchlength <- min_branchlength # Min to treat tip as a direct ancestor (no speciation event) # nolint
+  BioGeoBEARS_run_object$include_null_range <- TRUE # set to FALSE for e.g. DEC* model, DEC*+J, etc. # nolint
 
   # (Optional) specify time slices file
   if (!is.null(timesfn)) BioGeoBEARS_run_object$timesfn <- timesfn
@@ -47,19 +47,13 @@ setup_bgb_dec <- function(
     BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
   }
 
-  # Input the maximum range size
-  BioGeoBEARS_run_object$max_range_size <- max_range_size
-  BioGeoBEARS_run_object$min_branchlength <- min_branchlength    # Min to treat tip as a direct ancestor (no speciation event) #nolint
-  BioGeoBEARS_run_object$include_null_range <- TRUE    # set to FALSE for e.g. DEC* model, DEC*+J, etc. #nolint
-
   # Speed options and multicore processing if desired
   BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
   BioGeoBEARS_run_object$speedup <- TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params) #nolint
   BioGeoBEARS_run_object$use_optimx <- use_optimx    # if FALSE, use optim() instead of optimx() #nolint
   BioGeoBEARS_run_object$num_cores_to_use <- num_cores_to_use
-  BioGeoBEARS_run_object$cluster_already_open <- cluster_already_open
-
   BioGeoBEARS_run_object$force_sparse <- FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale #nolint
+  BioGeoBEARS_run_object$cluster_already_open <- cluster_already_open
 
   # This function loads the dispersal multiplier matrix etc. from the text files into the model object. Required for these to work! #nolint
   # (It also runs some checks on these inputs for certain errors.)
@@ -124,17 +118,26 @@ setup_bgb_diva <- function(
   trfn,
   geogfn,
   max_range_size,
+  jump = FALSE,
+  res_diva = NULL,
+  timesfn = NULL,
   dispersal_multipliers_fn = NULL,
   min_branchlength = 0.000001,
-  num_cores_to_use = 1) {
+  num_cores_to_use = 1,
+  cluster_already_open = NULL,
+  use_optimx = "GenSA") {
 
   # Basic settings
+  # - default model is DEC
   BioGeoBEARS_run_object <- BioGeoBEARS::define_BioGeoBEARS_run()
   BioGeoBEARS_run_object$trfn <- trfn
   BioGeoBEARS_run_object$geogfn <- geogfn
   BioGeoBEARS_run_object$max_range_size <- max_range_size
   BioGeoBEARS_run_object$min_branchlength <- min_branchlength
   BioGeoBEARS_run_object$include_null_range <- TRUE
+
+  # (Optional) specify time slices file
+  if (!is.null(timesfn)) BioGeoBEARS_run_object$timesfn <- timesfn
 
   # (Optional) specify dispersal multipliers file
   if (!is.null(dispersal_multipliers_fn)) {
@@ -144,133 +147,83 @@ setup_bgb_diva <- function(
   # Speed options and multicore processing
   BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
   BioGeoBEARS_run_object$speedup <- TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params) #nolint
-  BioGeoBEARS_run_object$use_optimx <- "GenSA"    # if FALSE, use optim() instead of optimx() #nolint
+  BioGeoBEARS_run_object$use_optimx <- use_optimx    # if FALSE, use optim() instead of optimx() #nolint
   BioGeoBEARS_run_object$num_cores_to_use <- num_cores_to_use
-  BioGeoBEARS_run_object$force_sparse <- FALSE    # force_sparse<- RUE causes pathology & isn't much faster at this scale #nolint
+  BioGeoBEARS_run_object$force_sparse <- FALSE    # force_sparse = TRUE causes pathology & isn't much faster at this scale #nolint
+  BioGeoBEARS_run_object$cluster_already_open <- cluster_already_open
 
   # Loads the dispersal multiplier matrix etc.
-  BioGeoBEARS_run_object <- BioGeoBEARS::readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object) 
+  BioGeoBEARS_run_object <- BioGeoBEARS::readfiles_BioGeoBEARS_run(
+    BioGeoBEARS_run_object)
+
+  # Divide the tree up by timeperiods/strata for stratified analysis
+  if (!is.null(timesfn)) {
+    BioGeoBEARS_run_object <- BioGeoBEARS::section_the_tree(
+      inputs = BioGeoBEARS_run_object,
+      make_master_table = TRUE, plot_pieces = FALSE)
+  }
 
   # Good default settings to get ancestral states
   BioGeoBEARS_run_object$return_condlikes_table <- TRUE
   BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table <- TRUE
   BioGeoBEARS_run_object$calc_ancprobs <- TRUE    # get ancestral states from optim run #nolint
 
-  # Set up DIVALIKE model
-  # Remove subset-sympatry
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] <-"fixed" #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] <- 0.0 #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] <- 0.0 #nolint
+  if (jump == FALSE) {
+    # Set up DIVALIKE model
+    #
+    # Remove subset-sympatry
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] <-"fixed" #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] <- 0.0 #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] <- 0.0 #nolint
 
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] <- "2-j" #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] <- "ysv*1/2" #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] <- "ysv*1/2" #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] <- "ysv*1/2" #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] <- "2-j" #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] <- "ysv*1/2" #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] <- "ysv*1/2" #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] <- "ysv*1/2" #nolint
 
-  # Allow classic, widespread vicariance; all events equiprobable
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","type"] <- "fixed" #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","init"] <- 0.5 #nolint
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","est"] <- 0.5 #nolint
+    # Allow classic, widespread vicariance; all events equiprobable
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","type"] <- "fixed" #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","init"] <- 0.5 #nolint
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","est"] <- 0.5 #nolint
+  } else if (jump == TRUE) {
+    # Set up DIVALIKE+J model
+    #
+    # Get the ML parameter values from the 2-parameter nested model
+    # (this will ensure that the 3-parameter model always does at least as good)
+    dstart <- res_diva$outputs@params_table["d", "est"]
+    estart <- res_diva$outputs@params_table["e", "est"]
+    jstart <- 0.0001
 
-  # No jump dispersal/founder-event speciation
-  # BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] <- "free"
-  # BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] <- 0.01
-  # BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] <- 0.01
+    # Input starting values for d, e
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d", "init"] <- dstart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d", "est"] <- dstart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e", "init"] <- estart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e", "est"] <- estart
 
-  # Check that setup is valid
-  BioGeoBEARS::check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+    # Remove subset-sympatry
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s", "type"] <- "fixed"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s", "init"] <- 0.0
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s", "est"] <- 0.0
 
-  BioGeoBEARS_run_object
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv", "type"] <- "2-j"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys", "type"] <- "ysv*1/2"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y", "type"] <- "ysv*1/2"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v", "type"] <- "ysv*1/2"
 
-}
+    # Allow classic, widespread vicariance; all events equiprobable
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v", "type"] <- "fixed"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v", "init"] <- 0.5
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v", "est"] <- 0.5
 
-#' Setup a BioGeoBEARS run using the DIVALIKE+J model
-#'
-#' @param trfn Path to BioGeoBEARS tree file (in Newick format)
-#' @param geogfn Path to BioGeoBEARS geography file (in phylip format)
-#' @param max_range_size Maximum number of range states allowed in model
-#' @param dispersal_multipliers_fn Path to dispersal multipliers file
-#' @param min_branchlength Minimum branchlength to treat tip as a direct
-#' ancestor (no speciation event)
-#' @param num_cores_to_use Number of cores to use during analysis
-#' @param resDIVALIKE Results of running BioGeoBEARS using the DIVALIKE model
-#'
-#' @return List
-#'
-setup_bgb_divaj <- function (
-  trfn,
-  geogfn,
-  max_range_size,
-  dispersal_multipliers_fn = NULL,
-  min_branchlength = 0.000001,
-  num_cores_to_use = 1,
-  resDIVALIKE) {
+    # Add jump dispersal/founder-event speciation
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "type"] <- "free"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "init"] <- jstart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "est"] <- jstart
 
-  # Basic settings
-  BioGeoBEARS_run_object <- BioGeoBEARS::define_BioGeoBEARS_run()
-  BioGeoBEARS_run_object$trfn <- trfn
-  BioGeoBEARS_run_object$geogfn <- geogfn
-  BioGeoBEARS_run_object$max_range_size <- max_range_size
-  BioGeoBEARS_run_object$min_branchlength <- min_branchlength
-  BioGeoBEARS_run_object$include_null_range <- TRUE
-
-  # (Optional) specify dispersal multipliers file
-  if (!is.null(dispersal_multipliers_fn)) {
-    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
+    # Under DIVALIKE+J, the max of "j" should be 2, not 3 (as is default in DEC+J)
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "min"] <- 0.00001
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "max"] <- 1.99999
   }
-
-  # Speed options and multicore processing
-  BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
-  BioGeoBEARS_run_object$speedup <- TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params) #nolint
-  BioGeoBEARS_run_object$use_optimx <- "GenSA"    # if FALSE, use optim() instead of optimx() #nolint
-  BioGeoBEARS_run_object$num_cores_to_use <- num_cores_to_use
-  BioGeoBEARS_run_object$force_sparse <- FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale #nolint
-
-  # Loads the dispersal multiplier matrix etc.
-  BioGeoBEARS_run_object <- BioGeoBEARS::readfiles_BioGeoBEARS_run(
-    BioGeoBEARS_run_object)
-
-  # Good default settings to get ancestral states
-  BioGeoBEARS_run_object$return_condlikes_table <- TRUE
-  BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table <- TRUE
-  BioGeoBEARS_run_object$calc_ancprobs <- TRUE    # get ancestral states from optim run  #nolint
-
-  # Set up DIVALIKE+J model
-  # Get the ML parameter values from the 2-parameter nested model
-  # (this will ensure that the 3-parameter model always does at least as good)
-  dstart <- resDIVALIKE$outputs@params_table["d", "est"]
-  estart <- resDIVALIKE$outputs@params_table["e", "est"]
-  jstart <- 0.0001
-
-  # Input starting values for d, e
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d", "init"] <- dstart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d", "est"] <- dstart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e", "init"] <- estart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e", "est"] <- estart
-
-  # Remove subset-sympatry
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s", "type"] <- "fixed"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s", "init"] <- 0.0
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s", "est"] <- 0.0
-
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv", "type"] <- "2-j"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys", "type"] <- "ysv*1/2"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y", "type"] <- "ysv*1/2"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v", "type"] <- "ysv*1/2"
-
-  # Allow classic, widespread vicariance; all events equiprobable
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v", "type"] <- "fixed"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v", "init"] <- 0.5
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v", "est"] <- 0.5
-
-  # Add jump dispersal/founder-event speciation
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "type"] <- "free"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "init"] <- jstart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "est"] <- jstart
-
-  # Under DIVALIKE+J, the max of "j" should be 2, not 3 (as is default in DEC+J)
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "min"] <- 0.00001
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j", "max"] <- 1.99999
 
   # Check that setup is valid
   BioGeoBEARS::check_BioGeoBEARS_run(BioGeoBEARS_run_object)
