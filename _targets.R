@@ -14,9 +14,10 @@ source("R/functions.R")
 
 tar_plan(
   # Specify data file paths ----
-  tar_file(antro_trfn, "Antrophyum.newick"),
-  tar_file(antro_geogfn, "Antrophyum_geodata.data"),
-  tar_file(antro_multfn, "manual_dispersal_multipliers.txt"),
+  tar_file(antro_trfn, "_targets/user/data/Antrophyum.newick"),
+  tar_file(antro_geogfn, "_targets/user/data/Antrophyum_geodata.data"),
+  tar_file(antro_multfn,
+    "_targets/user/data/manual_dispersal_multipliers.txt"),
   # Set up BioGeoBEARS models ----
   antro_max_range = 6,
   # - DEC
