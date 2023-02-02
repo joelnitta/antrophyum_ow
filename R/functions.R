@@ -4,21 +4,27 @@
 #' @param trfn Path to BioGeoBEARS tree file (in Newick format)
 #' @param geogfn Path to BioGeoBEARS geography file (in phylip format)
 #' @param max_range_size Maximum number of range states allowed in model
+#' @param jump Logical; should "jump" parameter be used?
+#' @param res_dec Output of DEC model; required if `jump` is TRUE
+#' @param timesfn_fn Path to time slices file, optional
+#' @param dispersal_multipliers_fn Path to dispersal multipliers file, optional
 #' @param min_branchlength Minimum branchlength to treat tip as a direct
 #' ancestor (no speciation event)
 #' @param num_cores_to_use Number of cores to use during analysis
+#' @param cluster_already_open Logical; is a cluster already open? Optional.
 #' @param use_optimx Type of optimization to use; choose "optim", "optimx",
 #' or "GenSA"
-#' @param dispersal_multipliers_fn Path to dispersal multipliers file
 #'
 #' @return List
 #'
 setup_bgb_dec <- function(
   trfn,
   geogfn,
+  max_range_size,
+  jump = FALSE,
+  res_dec = NULL,
   timesfn = NULL,
   dispersal_multipliers_fn = NULL,
-  max_range_size,
   min_branchlength =  0.000001,
   num_cores_to_use = 1,
   cluster_already_open = NULL,
@@ -75,87 +81,25 @@ setup_bgb_dec <- function(
   # Set up DEC model
   # (nothing to do; defaults)
 
-  # Check that setup is valid
-  BioGeoBEARS::check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+  # DEC+J
+  if (jump == TRUE) {
+    # Set up DEC+J model
+    # Get the ML parameter values from the 2-parameter nested model
+    # (this will ensure that the 3-parameter model always does at least as good)
+    dstart <- res_dec$outputs@params_table["d","est"]
+    estart <- res_dec$outputs@params_table["e","est"]
+    jstart <- 0.0001
 
-  BioGeoBEARS_run_object
-
-}
-
-#' Setup a BioGeoBEARS run using the DEC+J model
-#'
-#' @param trfn Path to BioGeoBEARS tree file (in Newick format)
-#' @param geogfn Path to BioGeoBEARS geography file (in phylip format)
-#' @param max_range_size Maximum number of range states allowed in model
-#' @param min_branchlength Minimum branchlength to treat tip as a direct ancestor (no speciation event)
-#' @param num_cores_to_use Number of cores to use during analysis
-#' @param dispersal_multipliers_fn Path to dispersal multipliers file
-#' @param resDEC Results of running BioGeoBEARS using the DEC model 
-#'
-#' @return List
-#' 
-setup_bgb_decj = function (
-  trfn,
-  geogfn,
-  max_range_size,
-  min_branchlength = 0.000001,
-  num_cores_to_use = 1,
-  timesfn = NULL,
-  dispersal_multipliers_fn = NULL,
-  resDEC) {
-
- # Intitialize a default model (DEC model)
-  BioGeoBEARS_run_object = BioGeoBEARS::define_BioGeoBEARS_run()
-
-  # Give BioGeoBEARS the location of the phylogeny Newick file
-  BioGeoBEARS_run_object$trfn = trfn
-
-  # Give BioGeoBEARS the location of the geography text file
-  BioGeoBEARS_run_object$geogfn = geogfn
-
-  # (Optional) specify time slices file
-  if(!is.null(timesfn)) BioGeoBEARS_run_object$timesfn = timesfn
-
-  # (Optional) specify dispersal multipliers file
-  if(!is.null(dispersal_multipliers_fn)) BioGeoBEARS_run_object$dispersal_multipliers_fn = dispersal_multipliers_fn
-
-  # Input the maximum range size
-  BioGeoBEARS_run_object$max_range_size = max_range_size
-  BioGeoBEARS_run_object$min_branchlength = min_branchlength
-  BioGeoBEARS_run_object$include_null_range = TRUE
-
-  # Speed options and multicore processing
-  BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
-  BioGeoBEARS_run_object$speedup = TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params)
-  BioGeoBEARS_run_object$use_optimx = "GenSA"    # if FALSE, use optim() instead of optimx()
-  BioGeoBEARS_run_object$num_cores_to_use = num_cores_to_use
-  BioGeoBEARS_run_object$force_sparse = FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale
-
-  # Loads the dispersal multiplier matrix etc.
-  BioGeoBEARS_run_object = BioGeoBEARS::readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object) 
-
-  # Good default settings to get ancestral states
-  BioGeoBEARS_run_object$return_condlikes_table = TRUE
-  BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
-  BioGeoBEARS_run_object$calc_ancprobs = TRUE    # get ancestral states from optim run
-
-  # Set up DEC+J model
-  # Get the ML parameter values from the 2-parameter nested model
-  # (this will ensure that the 3-parameter model always does at least as good)
-  dstart = resDEC$outputs@params_table["d","est"]
-  estart = resDEC$outputs@params_table["e","est"]
-  jstart = 0.0001
-
-  # Input starting values for d, e
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
-
-  # Add j as a free parameter
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
-  BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+    # Input starting values for d, e
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] <- dstart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] <- dstart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] <- estart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] <- estart
+    # Add j as a free parameter
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] <- "free"
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] <- jstart
+    BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] <- jstart
+  }
 
   # Check that setup is valid
   BioGeoBEARS::check_BioGeoBEARS_run(BioGeoBEARS_run_object)
@@ -172,6 +116,7 @@ setup_bgb_decj = function (
 #' @param min_branchlength Minimum branchlength to treat tip as a direct
 #' ancestor (no speciation event)
 #' @param num_cores_to_use Number of cores to use during analysis
+#' @param dispersal_multipliers_fn Path to dispersal multipliers file
 #'
 #' @return List
 #'
@@ -179,6 +124,7 @@ setup_bgb_diva <- function(
   trfn,
   geogfn,
   max_range_size,
+  dispersal_multipliers_fn = NULL,
   min_branchlength = 0.000001,
   num_cores_to_use = 1) {
 
@@ -189,6 +135,11 @@ setup_bgb_diva <- function(
   BioGeoBEARS_run_object$max_range_size <- max_range_size
   BioGeoBEARS_run_object$min_branchlength <- min_branchlength
   BioGeoBEARS_run_object$include_null_range <- TRUE
+
+  # (Optional) specify dispersal multipliers file
+  if (!is.null(dispersal_multipliers_fn)) {
+    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
+  }
 
   # Speed options and multicore processing
   BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
@@ -238,6 +189,7 @@ setup_bgb_diva <- function(
 #' @param trfn Path to BioGeoBEARS tree file (in Newick format)
 #' @param geogfn Path to BioGeoBEARS geography file (in phylip format)
 #' @param max_range_size Maximum number of range states allowed in model
+#' @param dispersal_multipliers_fn Path to dispersal multipliers file
 #' @param min_branchlength Minimum branchlength to treat tip as a direct
 #' ancestor (no speciation event)
 #' @param num_cores_to_use Number of cores to use during analysis
@@ -249,6 +201,7 @@ setup_bgb_divaj <- function (
   trfn,
   geogfn,
   max_range_size,
+  dispersal_multipliers_fn = NULL,
   min_branchlength = 0.000001,
   num_cores_to_use = 1,
   resDIVALIKE) {
@@ -260,6 +213,11 @@ setup_bgb_divaj <- function (
   BioGeoBEARS_run_object$max_range_size <- max_range_size
   BioGeoBEARS_run_object$min_branchlength <- min_branchlength
   BioGeoBEARS_run_object$include_null_range <- TRUE
+
+  # (Optional) specify dispersal multipliers file
+  if (!is.null(dispersal_multipliers_fn)) {
+    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
+  }
 
   # Speed options and multicore processing
   BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
@@ -332,9 +290,10 @@ setup_bgb_divaj <- function (
 #'
 #' @return List
 #'
-setup_bgb_bayarealike = function (
+setup_bgb_bayarea = function (
   trfn,
   geogfn,
+  dispersal_multipliers_fn = NULL,
   max_range_size,
   min_branchlength = 0.000001,
   num_cores_to_use = 1) {
@@ -347,6 +306,11 @@ setup_bgb_bayarealike = function (
   BioGeoBEARS_run_object$min_branchlength <- min_branchlength
   BioGeoBEARS_run_object$include_null_range <- TRUE
 
+  # (Optional) specify dispersal multipliers file
+  if (!is.null(dispersal_multipliers_fn)) {
+    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
+  }
+
   # Speed options and multicore processing
   BioGeoBEARS_run_object$on_NaN_error <- -1e50    # returns very low lnL if parameters produce NaN error (underflow check) #nolint
   BioGeoBEARS_run_object$speedup <- TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params) #nolint
@@ -356,7 +320,7 @@ setup_bgb_bayarealike = function (
 
   # Loads the dispersal multiplier matrix etc.
   BioGeoBEARS_run_object <- BioGeoBEARS::readfiles_BioGeoBEARS_run(
-    BioGeoBEARS_run_object) 
+    BioGeoBEARS_run_object)
 
   # Good default settings to get ancestral states
   BioGeoBEARS_run_object$return_condlikes_table <- TRUE
@@ -408,7 +372,7 @@ setup_bgb_bayarealike = function (
 #'
 #' @return List
 #' 
-setup_bgb_bayarealikej = function (trfn, geogfn, max_range_size, 
+setup_bgb_bayareaj = function (trfn, geogfn, dispersal_multipliers_fn, max_range_size, 
                                    min_branchlength = 0.000001, num_cores_to_use,
                                    resBAYAREALIKE) {
 
@@ -419,6 +383,11 @@ setup_bgb_bayarealikej = function (trfn, geogfn, max_range_size,
   BioGeoBEARS_run_object$max_range_size = max_range_size
   BioGeoBEARS_run_object$min_branchlength = min_branchlength
   BioGeoBEARS_run_object$include_null_range = TRUE
+
+  # (Optional) specify dispersal multipliers file
+  if (!is.null(dispersal_multipliers_fn)) {
+    BioGeoBEARS_run_object$dispersal_multipliers_fn <- dispersal_multipliers_fn
+  }
 
   # Speed options and multicore processing
   BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
