@@ -1,0 +1,283 @@
+---
+title: "Biogeographical analysis"
+format:
+  docx:
+    toc: false
+    number-sections: false
+    highlight-style: github
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE)
+library(targets)
+library(tidyverse)
+library(patchwork)
+number <- function(...) {
+  scales::number(big.mark = ",", ...)
+}
+
+# Load objects from workflow
+tar_load(c(
+  bgb_stats_pretty,
+  bsm_events,
+  antro_phy
+))
+```
+
+Our study presents the first comprehensive phylogenetic analysis of Antrophyum. 
+Among the 34 recognized species, only three of them are missing in the current analysis and it is unlikely they will affect the main conclusions (see later discussion). 
+The time-calibrated phylogeny reveals that the common ancestor of Antrophyum and its sister group Antrophyopsis diverged in the middle Oligocene around 30 Ma (95% HPD = 23.9–36.1 Ma). 
+
+```{r}
+#| label: antrophyopsis
+#| include: false
+
+# node 34 is Antrophyum
+n_disp_rep_node_34 <-
+  bsm_events %>%
+  filter(node == 34, event_type == "d") %>%
+  count(rep) %>%
+  pull(rep) %>%
+  n_distinct()
+```
+
+## Methods
+
+### Historical biogeographic analysis
+
+We used the chronogram resulting from BEAST as the input file for historical biogeographic analysis.
+We determined geographic distributions for species based upon our own collections that we personally identified in order to avoid problems caused by potential misidentifications.
+We recognized six areas including: (A) Africa, (B) Asia [Asia-temperate + Indian subcontinent + Indo-China], (C) Malesia, (D) Papuasia, (E) Pacific, and (F) Australasia, which follows the geographical scheme of Brummitt (2001).
+We chose these areas with the aim to best represent the current global distribution of the genus and to detect past major biogeographical shifts within the genus.
+We used the R package ‘BioGeoBEARS’ (Matzke, 2013) to perform a likelihood ancestral range estimation using three models: (1) DEC (Dispersal Extinction Cladogenesis, Ree and Smith, 2008), (2) DIVALIKE (a likelihood-based implementation of dispersal vicariance analysis, Ronquist, 1997); and (3) BAYAREALIKE (a likelihood implementation of BayArea, Landis et al., 2013).
+We also tested models with and without founder-event speciation, which is incorporated with the “j” parameter in the package.
+We further evaluated the models under a constrained analysis which considered the dispersal rate differences among the six areas.
+Specifically, we set a dispersal probability matrix based on the connectivity among the bioregions (1 = high dispersal rate within an area, 0.5 = medium dispersal rate between connected areas, and 0.05 = low dispersal rate between disconnected areas, Table 2).
+In total, we tested 12 models (Table 3) and selected the best-fit model based on the Akaike Information Criterion (AIC, Burnham and Anderson, 1998) since not all of the models are nested.
+
+We used biogeographical stochastic mapping (BSM) to estimate the frequency of dispersal and vicariance events based on the best-fit model (Dupin et al. 2016).
+We simulated biogeographic events in *Antrophyum* using 1,000 replicates and summarized the frequency of event types across replicates.
+When analyzing temporal trends in the frequency of biogeographic events, we standardized by total branch length in bins of 2 my each, since the number of events scales with branch length (or nodes, in the case of cladogenic events) and the total number of branches/nodes increases towards the present (Silvestro et al. 2018).
+
+## Results
+
+### Molecular dating and historical biogeography
+
+```{r}
+#| label: events-table
+#| include: false
+
+# format names for pretty table
+pretty_event_names <- tribble(
+  ~event_type, ~type, ~mode, ~short_name,
+  "d", "Range expansions (d)", "Dispersal", "d",
+  "founder (j)", "Founder events (j)", "Dispersal", "j",
+  "subset (s)", "Subset (s)", "Within-area speciation", "s",
+  "sympatry (y)", "Sympatry (y)", "Within-area speciation", "y",
+  "vicariance (v)", "Vicariance (v)", "Vicariance", "v"
+) %>%
+  mutate(
+    mode = factor(
+      mode, levels = c("Within-area speciation", "Dispersal", "Vicariance"))
+  )
+
+# pretty table for printing
+bsm_mean_event_table <-
+bsm_events %>%
+  count_mean_bsm(event_type) %>%
+  mutate(percent = 100 * (mean / sum(mean))) %>%
+  left_join(pretty_event_names, by = "event_type") %>%
+  select(mode, type, mean, sd, percent) %>%
+  arrange(mode, type)
+
+# list for referencing in-line
+bsm_counts <-
+bsm_events %>%
+  count_mean_bsm(event_type) %>%
+  left_join(pretty_event_names, by = "event_type") %>%
+  mutate(
+    mean = round(mean, 2),
+    sd = round(sd, 2)) %>%
+  split(.$short_name)
+```
+
+
+The chronogram inferred by BEAST with the ancestral range estimated by BioGeoBEARS is summarized in Fig. 8.
+The tree topology derived from BEAST was identical to that from RAxML.
+The divergence of Antrophyum and its sister genus Antrophyopsis was dated back to the middle Oligocene around 30 Ma (95% highest posterior density, HPD = 24.0–36.1 Ma).
+Within the genus, the first and second divergences dated back to around 20 Ma (95% HPD = 15.3–25.6 Ma) and 16 Ma (95% HPD = 11.8–20.3 Ma).
+
+Among the 12 biogeographic models tested, we determined the constrained DEC + j model as the best-fit model because it yielded the lowest AIC value (Table 3).
+Table 8 shows the most likely ancestral range of each clade, together with divergence-time estimates.
+The best-fit model suggested the ancestor of Antrophyum was widely distributed in Malesia, Papuasia, and Pacific Islands.
+Nonetheless, there is high uncertainty in ancestral ranges (Fig. S17).
+Papuasian and Malesian origins were inferred for Clades B and C, respectively.
+These clades began to expand into other areas about 10 Ma.
+
+Range expansions were the most frequently observed biogeographic event over all BSM replicates (mean `r bsm_counts$d$mean` ± `r bsm_counts$d$sd` events per replicate; Table X).
+The most frequently observed dispersal patterns were between Malesia and Papuasia, from Papuasia to the Pacific, and between Asia and Malesia (Figure S18).
+Vicariance events were most common early in the history of *Antrophyum*, and decreased with time towards the present (Figure S20).
+Dispseral events increased in the most recent 10 my (Figure S20).
+
+## Discussion
+
+The current allopatric distribution of Antrophyum (mainly tropical Asia and Pacific Islands) and Antrophyopsis (African endemic) is likely the result of transoceanic dispersal since the two landmasses were already separated at that time; at least one dispersal event was observed in `r n_disp_rep_node_34` of the 100 BSM replicates along the branch leading to *Antrophyum*.
+Dispersal seems to have played an important role in the biogeographic history of *Antrophyum*, with an average of `r bsm_counts$j$mean + bsm_counts$d$mean` dispersal events (range expansions or founder events) per BSM replicate, but only `r bsm_counts$v$mean` vicariance events (Table X).
+
+Although the estimation of ancestral ranges under the best-fit model (constrained DEC + j) suggests that the ancestral range of crown group of Antrophyum to be on the landmasses of today’s Malesia (C), Papuasia (D), and Pacific (E), the low probability of this result (15%, Table 8) leaves the ancestral distribution of the genus uncertain.
+Unexpectedly, the New Caledonian endemic A. novae-caledoniae is recovered as sister to all other living species.
+Their divergence was dated to the early Miocene around 20 Ma (95% HPD = 15.3–25.6 Ma).
+A similar pattern has been also observed in several other plant groups (Álvarez-Molina & Cameron, 2009; Vasconcelos et al., 2017) and the most well-known example is the flowering plant Amborella, which is endemic to New Caledonia and sister to all other angiosperms (Simmons 2017).
+So-called relict lineages seem to be over-represented in New Caledonia, and this has been attributed to the persistence of forest throughout the Neogene that acted as refugia while extinctions happened elsewhere (Pouteau et al. 2015, Condamine et al. 2017, Pillon et al. 2021).
+
+Clades B and C include the majority of living species, and there is a clear difference in their geography: the origin of clade B was estimated to be Papuasia whereas that of clade C was Malesia (Table 8).
+Clade B subsequently colonized eastward to the Pacific Islands and westward to Malesia while the clade C colonized northward to Asia (Figure S19).
+The extent to which the contrasting biogeographic histories of clades B and C reflect ecological differences remains to be investigated.
+Long distance dispersal, in particular range expansions, increased in frequency during the past 10 Ma (Figure S20).
+Although the overall trend is to disperse eastward (from Papuasia or Malesia to the Pacific Islands) or northward (from Malesia to Asia), the analysis also suggests several westward dispersal events in clade B.
+For example, the B-2 and B-3 clades dispersed from Papuasia to Malesia.
+Long-distance dispersal that crossed the Indian Ocean (from Malesia to Africa) also happened at least twice, once in A. immersum and the other in the clade containing A. malgassicum and closely related species.
+
+## Supplemental Figures
+
+```{r}
+#| label: dispersal-bars
+#| include: false
+
+# Define function to make plot
+plot_event_count <- function(event_counts) {
+  event_counts %>%
+    mutate(event_txt = fct_reorder(event_txt, mean)) %>%
+    ggplot(aes(x = mean, y = event_txt)) +
+    geom_errorbarh(aes(xmin = mean - 0.01, xmax = mean + sd, height = 0.2)) +
+    geom_col() +
+    scale_x_continuous(name = "Number of events per replicate") +
+    theme(axis.title.y = element_blank())
+}
+
+bsm_disperals <-
+  bsm_events %>%
+  filter(event_type %in% c("founder (j)", "d")) %>%
+  count_mean_bsm(event_txt) %>%
+  filter(mean > 0.5)
+
+fig_s18 <- plot_event_count(bsm_disperals)
+
+ggsave(plot = fig_s18, file = "reports/FigureS18_bsm_dispersals.pdf", height = 9, width = 6.5)
+```
+
+Figure S18: Frequency (mean and SD) of dispersal events (range expansion and founder events) across 100 biogeographical stochastic mapping (BSM) replicates. Only events with at least mean of 0.5 occurrence per replicate shown. Region codes as in Figure 8; arrow indicates direction of movement.
+
+```{r}
+#| label: dispersal-bars-clades
+#| include: false
+
+# To double check node numbers:
+# plot(ladderize(antro_phy, right = FALSE))
+# nodelabels()
+# tiplabels()
+
+# Don't include crown node because disperals are on branch leading
+# to node
+b_nodes <- Descendants(antro_phy, 53, "all")
+c_nodes <- Descendants(antro_phy, 36, "all")
+
+clade_b_dispersals <-
+bsm_events %>%
+  filter(node %in% b_nodes) %>%
+  filter(event_type %in% c("founder (j)", "d")) %>%
+  count_mean_bsm(event_txt) %>%
+  filter(mean > 0.5)
+
+clade_c_dispersals <-
+bsm_events %>%
+  filter(node %in% c_nodes) %>%
+  filter(event_type %in% c("founder (j)", "d")) %>%
+  count_mean_bsm(event_txt) %>%
+  filter(mean > 0.5)
+
+fig_s19a <- plot_event_count(clade_b_dispersals) +
+  ggtitle("Clade B")
+
+fig_s19b <- plot_event_count(clade_c_dispersals) +
+  ggtitle("Clade C")
+
+fig_s19 <- fig_s19a + fig_s19b + plot_annotation(tag_levels = "A")
+
+ggsave(
+  plot = fig_s19,
+  file = "reports/FigureS19_bsm_dispersals_clades.pdf",
+  height = 7, width = 6.5)
+```
+
+Figure S19: Frequency (mean and SD) of dispersal events (range expansion and founder events) across 100 biogeographical stochastic mapping (BSM) replicates for clade B (part A) or clade C (part B). Only events with at least mean of 0.5 occurrence per replicate shown. Region codes as in Figure 8; arrow indicates direction of movement.
+
+```{r}
+#| label: events-over-time
+#| include: false
+
+# Plot events over time, normalized by branchlength in 2 my bins
+
+## helper function for plotting
+
+# plot of normalized dispersal events through time
+plot_normalized_events <- function(normalized_data) {
+  ggplot(normalized_data, aes(x = time, ymin = mean - sd, ymax = mean + sd)) +
+    pammtools::geom_stepribbon(fill = "grey70") +
+    geom_step(aes(y = mean), direction = "hv") +
+    xlab("Time (mya)") +
+    ylab("Frequency") +
+    scale_x_reverse()
+}
+
+## get normalized counts of events ----
+
+# bin events and branchlenths
+# - set bin width
+bin_width <- 2
+# - bin branch lengths
+blrn_binned <- bin_brln(antro_phy, bin_width)
+# - all dispersal events (range expansion + founder events)
+disp_binned <- bin_events(bsm_events, c("d", "founder (j)"), bin_width)
+# - only founder events
+founder_binned <- bin_events(bsm_events, "founder (j)", bin_width)
+# - only range expansions
+range_exp_binned <- bin_events(bsm_events, "d", bin_width)
+# - vicariance events
+vic_binned <- bin_events(bsm_events, "vicariance (v)", bin_width)
+
+disp_normalized <- normalize_events(disp_binned, blrn_binned)
+founder_normalized <- normalize_events(founder_binned, blrn_binned)
+range_exp_normalized <- normalize_events(range_exp_binned, blrn_binned)
+vic_normalized <- normalize_events(vic_binned, blrn_binned)
+
+fig_s20a <- plot_normalized_events(vic_normalized) +
+  ggtitle("Vicariance events")
+
+fig_s20b <- plot_normalized_events(range_exp_normalized) +
+  ggtitle("Range expansion events")
+
+fig_s20c <- plot_normalized_events(founder_normalized) +
+  ggtitle("Founder events")
+
+fig_s20d <- plot_normalized_events(disp_normalized) +
+  ggtitle("All dispersal events")
+
+fig_s20 <- fig_s20a + fig_s20b + fig_s20c + fig_s20d +
+  plot_annotation(tag_levels = "A")
+
+
+ggsave(
+  plot = fig_s20,
+  file = "reports/FigureS20_bsm_events_over_time.pdf",
+  height = 7, width = 6.5)
+```
+
+Figure S20: Frequency of biogeographic events over time. Y-axis shows mean (stepped lines) and SD (grey box) of events from 1,000 BSM replicates normalized by total branch length in 2 my bins. (A) vicariance events, (B) range expansion events, (C) founder events, (D) all dispersal events (range expansion and founder events).
+
+## References
+
+Silvestro D, Antonelli A, Scharn R, et al (2018) Amazonia is the primary source of Neotropical biodiversity. Proceedings of the National Academy of Sciences 115:6034–6039. https://doi.org/10.1073/pnas.1713819115

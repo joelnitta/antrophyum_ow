@@ -642,3 +642,132 @@ bin_brln <- function(phy, bin_width, max_age = NULL) {
     mutate(time = time - 1) %>%
     mutate(bin = cut_width(time, width = bin_width, center = bin_width / 2))
 }
+
+# BSM ----
+
+# Count cladogeneic events in a single rep
+count_cladgen_single <- function(clado_event_table) {
+  clado_event_table %>%
+      select(
+        node,
+        event_type = clado_event_type,
+        event_txt = clado_event_txt,
+        dispersal_to = clado_dispersal_to,
+        # since cladogenic events take place at nodes,
+        # time_bp of the node is same as the abs event time
+        abs_event_time = time_bp) %>%
+    mutate(from = str_split_fixed(event_txt, n = 2, pattern = "->")[,1 ])
+}
+
+# Count cladogeneic events across reps
+count_cladgen_across_reps <- function(clado_event_tables) {
+  map_df(
+  clado_event_tables,
+  count_cladgen_single, .id = "rep") %>%
+  as_tibble() %>%
+  filter(event_txt != "")
+}
+
+# Count anagenic events in a single rep
+count_angen_single <- function (ana_event_table) {
+  ana_event_table %>% 
+    select(
+      node, abs_event_time, event_type, event_txt, dispersal_to) %>%
+    mutate(from = str_split_fixed(event_txt, n = 2, pattern = "->")[,1 ])
+}
+
+# Count anagenic events across reps
+count_angen_across_reps <- function(ana_events_tables) {
+  map_df(ana_events_tables, count_angen_single, .id = "rep") %>%
+  as_tibble()
+}
+
+# Count cladogenic and anagenic events across reps
+count_bsm_across_reps <- function(bsm_results) {
+  cladgen <- count_cladgen_across_reps(bsm_results$RES_clado_events_tables)
+  angen <- count_angen_across_reps(bsm_results$RES_ana_events_tables)
+  bind_rows(cladgen, angen) %>%
+    rename(to = dispersal_to) %>%
+    select(rep, node, abs_event_time, event_type, event_txt, from, to)
+}
+
+#' Count mean number of events per replicate
+#' @param ... Bare names of events (variables) to count
+count_mean_bsm <- function(events, ...) {
+  events %>%
+    # Add count of each event type per replicate
+    group_by(..., rep) %>%
+    summarize(count = dplyr::n(), .groups = "drop") %>%
+    # This count won't include zeros since they don't appear in the raw data.
+    # Add them
+    complete(..., rep) %>%
+    mutate(count = replace_na(count, 0)) %>%
+    # Calculate mean number of events across replicates
+    group_by(...) %>%
+    summarize(
+      mean = mean(count), sd = sd(count),
+      .groups = "drop") %>%
+    arrange(desc(mean))
+}
+
+#' Bin biogeographic events
+#'
+#' @param events Table of cladogenic or anagenic events from BSM
+#' @param event_type_select Character vector; Type of event to bin;
+#' should be a column name or names in `events`
+#' @param bin_width Temporal width of bin
+#'
+bin_events <- function(
+  events,
+  event_type_select,
+  bin_width) {
+
+  assertthat::assert_that(
+    all(event_type_select %in% events$event_type),
+    msg = "One or more selected event types not in events table"
+  )
+
+  vars_1 <- unique(c("rep", vars))
+
+# Count the number of dispersals per time bin
+  events %>%
+  filter(event_type %in% event_type_select) %>%
+  mutate(
+    bin = cut_width(
+      abs_event_time,
+      width = bin_width,
+      center = bin_width / 2)
+  ) %>%
+  group_by(bin, rep) %>%
+  summarize(abs_count = dplyr::n(),
+            .groups = "drop") %>%
+  # Account for missing observations
+  complete(bin, rep) %>%
+  mutate(abs_count = replace_na(abs_count, 0)) %>%
+  group_by(bin) %>%
+  summarize(lower = quantile(abs_count, probs = 0.025),
+            mean = mean(abs_count),
+            upper = quantile(abs_count, probs = 0.975),
+            sd = sd(abs_count),
+            n = dplyr::n(),
+            .groups = "drop")
+}
+
+#' Normalize binned beogeographic events
+#'
+#' @param events_binned Binned events; output of bin_events()
+#' @param blrn_binned Binned branchlengths; output of bin_brln()
+normalize_events <- function(events_binned, blrn_binned) {
+  left_join(events_binned, blrn_binned, by = "bin") %>%
+    mutate(lower = lower / tot_brl) %>%
+    mutate(mean = mean / tot_brl) %>%
+    mutate(upper = upper / tot_brl) %>%
+    mutate(sd = sd / tot_brl) %>%
+  # If no events observed in that bin, convert to NA
+  mutate(mean = case_when(
+    mean == 0 & sd == 0 ~ NaN,
+    TRUE ~ mean
+  ))
+}
+
+#' Normalize dispersal events

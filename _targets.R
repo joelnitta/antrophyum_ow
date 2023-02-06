@@ -9,6 +9,10 @@ library(parallel)
 library(rexpokit)
 library(cladoRcpp)
 library(BioGeoBEARS)
+library(ape)
+library(janitor)
+library(quarto)
+library(phangorn)
 
 source("R/functions.R")
 
@@ -151,20 +155,16 @@ tar_plan(
     res = best_model,
     stochastic_mapping_inputs_list = stochastic_mapping_inputs_list,
     maxnum_maps_to_try = 2000,
-    nummaps_goal = 100,
+    nummaps_goal = 1000,
     maxtries_per_branch = 40000,
     save_after_every_try = TRUE,
     savedir = "_targets/user/biogeobears/",
     seedval = 12345,
     wait_before_save = 0.01),
-  # Count normalized dispersal events through time
-  antro_phy = ape::read.tree(antro_trfn) #,
-  # dispersal_events = count_normalized_dispersal_events(
-  #   bsm_results = bsm_results,
-  #   max_age = 20,
-  #   bin_width = 2,
-  #   tr = test_phy,
-  #   realm_names = test_realms %>% pull(realm) %>% unique %>% sort
-  # )
-
+  # Count number of events across reps
+  bsm_events = count_bsm_across_reps(bsm_results),
+  # Render report ----
+  tar_render(
+    bgb_report,
+    "reports/bgb.Qmd")
 )
