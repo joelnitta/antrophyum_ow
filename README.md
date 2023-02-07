@@ -22,4 +22,6 @@ Within R, run `targets::tar_make()`. You will see the workflow start running. It
 
 ## License
 
-All code is under the [MIT license](LICENSE).
+All code except for `cladistics.csl` is under the [MIT license](LICENSE).
+
+`cladistics.csl` by Steven Vidovic is licensed under a [Creative Commons Attribution-ShareAlike 3.0 License](https://creativecommons.org/licenses/by-sa/3.0/). No changes were made to the file.
