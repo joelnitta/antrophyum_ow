@@ -1,19 +1,5 @@
-library(targets)
-library(tarchetypes)
-library(tidyverse)
-library(optimx)
-library(GenSA)
-library(FD)
-library(snow)
-library(parallel)
-library(rexpokit)
-library(cladoRcpp)
-library(BioGeoBEARS)
-library(ape)
-library(janitor)
-library(quarto)
-library(phangorn)
 
+source("R/packages.R")
 source("R/functions.R")
 
 tar_plan(
