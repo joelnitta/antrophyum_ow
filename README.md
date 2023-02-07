@@ -22,4 +22,4 @@ Within R, run `targets::tar_make()`. You will see the workflow start running. It
 
 ## License
 
-All code is under the MIT license.
+All code is under the [MIT license](LICENSE).
