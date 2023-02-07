@@ -1,0 +1,67 @@
+---
+references:
+- id: Dupin2017
+  accessed:
+    - year: 2021
+      month: 5
+      day: 14
+  author:
+    - family: Dupin
+      given: Julia
+    - family: Matzke
+      given: Nicholas J.
+    - family: Särkinen
+      given: Tiina
+    - family: Knapp
+      given: Sandra
+    - family: Olmstead
+      given: Richard G.
+    - family: Bohs
+      given: Lynn
+    - family: Smith
+      given: Stacey D.
+  citation-key: Dupin2017
+  container-title: Journal of Biogeography
+  DOI: 10/f95w77
+  ISSN: 1365-2699
+  issue: '4'
+  issued:
+    - year: 2017
+  language: en
+  note: '_eprint: https://onlinelibrary.wiley.com/doi/pdf/10.1111/jbi.12898'
+  page: 887-899
+  source: Wiley Online Library
+  title: Bayesian estimation of the global biogeographical history of the Solanaceae
+  type: article-journal
+  URL: https://onlinelibrary.wiley.com/doi/abs/10.1111/jbi.12898
+  volume: '44'
+
+- id: Silvestro2018
+  author:
+    - family: Silvestro
+      given: Daniele
+    - family: Antonelli
+      given: Alexandre
+    - family: Scharn
+      given: Ruud
+    - family: Bacon
+      given: Christine D.
+    - family: Carvalho
+      given: Fernanda Antunes
+    - family: Condamine
+      given: Fabien L.
+    - family: Zizka
+      given: Alexander
+  citation-key: Silvestro2018
+  container-title: Proceedings of the National Academy of Sciences
+  DOI: 10.1073/pnas.1713819115
+  ISSN: 0027-8424
+  issue: '23'
+  issued:
+    - year: 2018
+  page: 6034-6039
+  PMID: '29760058'
+  title: Amazonia is the primary source of Neotropical biodiversity
+  type: article-journal
+  volume: '115'
+...

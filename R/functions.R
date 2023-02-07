@@ -525,7 +525,14 @@ format_model_table <- function(bgb_stats) {
     model_type = factor(model_type, levels = c("dec", "diva", "bayarea"))
   ) %>%
   arrange(constraint, jump, model_type) %>%
-  select(mod_name, constraint, lnl, numparams, d, e, j, aic)
+  select(mod_name, constraint, lnl, numparams, d, e, j, aic) %>%
+  mutate(
+    mod_name_pretty = str_replace_all(mod_name, "dec", "DEC") %>%
+      str_replace_all("diva", "DIVALIKE") %>%
+      str_replace_all("bayarea", "BAYAREALIKE") %>%
+      str_replace_all("_const", "") %>%
+      str_replace_all("j", " + j")
+  )
 }
 
 # Get the best-scoring model from AIC table
@@ -693,8 +700,11 @@ count_bsm_across_reps <- function(bsm_results) {
 
 #' Count mean number of events per replicate
 #' @param ... Bare names of events (variables) to count
-count_mean_bsm <- function(events, ...) {
+count_mean_bsm <- function(events, ..., n_rep = 1000) {
   events %>%
+    # Make sure all replicates are accounted for, even if
+    # pre-filtered
+    mutate(rep = factor(rep, levels = 1:n_rep)) %>%
     # Add count of each event type per replicate
     group_by(..., rep) %>%
     summarize(count = dplyr::n(), .groups = "drop") %>%
@@ -707,6 +717,7 @@ count_mean_bsm <- function(events, ...) {
     summarize(
       mean = mean(count), sd = sd(count),
       .groups = "drop") %>%
+    mutate(across(c(mean, sd), ~round(., 2))) %>%
     arrange(desc(mean))
 }
 
@@ -770,4 +781,58 @@ normalize_events <- function(events_binned, blrn_binned) {
   ))
 }
 
-#' Normalize dispersal events
+#' Filter events by a clade and summarize
+#' 
+#' @param phy Phylogeny
+#' @param tips Character vector; either a single tip, or if 2 tips, these will
+#' be used to obtain the MRCA of the clade
+#' @param events Biogeographic events table from BSM
+#' @param n_rep Number of reps in BSM
+filter_by_clade_and_count <- function(
+  phy,
+  tips,
+  events,
+  n_rep = 1000
+) {
+
+  if (length(tips) == 1) {
+    node_select <- which(phy$tip.label == tips)
+  } else {
+    node_select <- ape::getMRCA(phy, tips)
+  }
+
+  descendants <- phangorn::Descendants(phy, node_select, "all")
+
+  events %>%
+    filter(node %in% descendants) %>%
+    count_mean_bsm(
+      .,
+      event_type,
+      n_rep = n_rep
+    )
+
+}
+
+#' Extract a tibble of ancestral state probabilities from BioGeoBEARS model
+#'
+#' @param bgb_model List; output of BioGeoBEARS::bears_optim_run()
+extract_anc_states_probs <- function(bgb_model) {
+
+  # Get character vector of states (combinations of ranges)
+  # These correspond to the columns of
+  # ML_marginal_prob_each_state_at_branch_top_AT_node
+  # in the model output
+  states <- bgb_model$inputs$list_of_dispersal_multipliers_mats[[1]] %>%
+    colnames() %>%
+    areas_list_to_states_list_new() %>%
+    map_chr(~paste(., collapse = ""))
+
+  # Parse model output
+  bgb_model$ML_marginal_prob_each_state_at_branch_top_AT_node %>%
+    as.data.frame() %>%
+    set_names(states) %>%
+    rownames_to_column("node") %>%
+    as_tibble() %>%
+    mutate(node = as.numeric(node))
+
+}

@@ -134,6 +134,8 @@ tar_plan(
   bgb_stats_pretty = format_model_table(bgb_stats),
   # Extract best-scoring model for BSM
   best_model = get_best_model(bgb_stats),
+  # Get probabilities of states at each node
+  anc_states_probs = extract_anc_states_probs(best_model),
   # Run BSM ----
   stochastic_mapping_inputs_list =
     BioGeoBEARS::get_inputs_for_stochastic_mapping(res = best_model),
@@ -150,7 +152,8 @@ tar_plan(
   # Count number of events across reps
   bsm_events = count_bsm_across_reps(bsm_results),
   # Render report ----
-  tar_render(
+  tar_quarto(
     bgb_report,
-    "reports/bgb.Qmd")
+    "reports/bgb.Qmd",
+    quiet = FALSE)
 )
