@@ -8,6 +8,8 @@ tar_plan(
   tar_file(antro_geogfn, "_targets/user/data/Antrophyum_geodata.data"),
   tar_file(antro_multfn,
     "_targets/user/data/manual_dispersal_multipliers.txt"),
+  # Load tree ----
+  antro_phy = ape::read.tree(antro_trfn),
   # Set up BioGeoBEARS models ----
   antro_max_range = 6,
   # - DEC
